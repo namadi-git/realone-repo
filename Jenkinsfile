@@ -2,16 +2,16 @@ pipeline {
     agent any
     environment {
         VERSION = "${env.BUILD_ID}"
-        AWS_ACCOUNT_ID="775012328020"
-        AWS_DEFAULT_REGION="us-east-1"
-        IMAGE_REPO_NAME="jenkins-pipeline"
+        AWS_ACCOUNT_ID="636885593592"
+        AWS_DEFAULT_REGION="us-east-2"
+        IMAGE_REPO_NAME="my_app_ecr"
         IMAGE_TAG= "${env.BUILD_ID}"
-        REPOSITORY_URI = "775012328020.dkr.ecr.us-east-1.amazonaws.com/jenkins-pipeline"
+        REPOSITORY_URI = "636885593592.dkr.ecr.us-east-2.amazonaws.com/my_app_ecr"
     }
     stages {
         stage('Git checkout') {
             steps {
-                git 'https://github.com/tkibnyusuf/realone-repo.git'
+                git 'https://github.com/namadi-git/realone-repo.git'
             }
         }
         
@@ -32,13 +32,13 @@ pipeline {
          stage('Logging into AWS ECR') {
                      environment {
                         AWS_ACCESS_KEY_ID = credentials('aws_access_key_id')
-                        AWS_SECRET_ACCESS_KEY = credentials('aws_secret_access_key')
+                        AWS_SECRET_ACCESS_KEY = credentials('aws_secret_key')
                          
                    }
                      steps {
                        script{
              
-                         sh """aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"""
+                         sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
                 }
                  
             }
@@ -55,12 +55,20 @@ pipeline {
         stage('Pushing to ECR') {
           steps{  
             script {
-                sh """docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:$IMAGE_TAG"""
-                sh """docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}"""
+                sh "docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}"
+                sh "docker push ${REPOSITORY_URI}:${IMAGE_TAG}"
+                sh "docker tag ${REPOSITORY_URI}:${IMAGE_TAG} ${REPOSITORY_URI}:latest"
+                sh "docker push ${REPOSITORY_URI}:latest"
          }
         }
       }
-         
+         stage('Remove Unused docker image') {
+          steps{
+              sh "docker rmi ${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+              sh "docker rmi ${IMAGE_REPO_NAME}:latest"
+                        }
+            }  
+    
          stage('pull image & Deploying application on eks cluster') {
                     environment {
                        AWS_ACCESS_KEY_ID = credentials('aws_access_key_id')
@@ -70,8 +78,8 @@ pipeline {
                       script{
                         dir('kubernetes/') {
                           sh 'aws eks update-kubeconfig --name myAppp-eks-cluster --region us-east-1'
-                          sh """aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"""
-                          sh 'helm upgrade --install --set image.repository="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}" --set image.tag="2" myjavaapp myapp/ ' 
+                          sh 'aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com'
+                          sh 'helm upgrade --install --set image.repository="${REPOSITORY_URI}" --set image.tag= {VERSION} myjavaapp myapp/ ' 
 
 
 
