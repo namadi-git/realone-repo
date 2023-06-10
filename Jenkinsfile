@@ -64,8 +64,8 @@ pipeline {
       }
          stage('Remove Unused docker image') {
           steps{
-              sh "docker rmi ${IMAGE_REPO_NAME}:${IMAGE_TAG}"
-              sh "docker rmi ${IMAGE_REPO_NAME}:latest"
+              sh "docker rmi ${REPOSITORY_URI}:${IMAGE_TAG}"
+              sh "docker rmi ${REPOSITORY_URI}:latest"
                         }
             }  
     
